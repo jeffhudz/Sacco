@@ -1,0 +1,93 @@
+{
+  "name": "SACCO - Admin Dashboard",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin-summary",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "4a7d5f49-6c6b-4aaa-9d1a-5f93f30c18b1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -300,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) AS total_members, SUM(COALESCE(savings_balance, 0)) AS total_savings, SUM(COALESCE(loan_balance, 0)) AS total_loans FROM accounts;",
+        "options": {}
+      },
+      "id": "bb3bc9b5-75ff-45eb-bfaf-64e5c1c8b347",
+      "name": "Admin Summary Query",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        -20,
+        100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "vMWjzfzcJMc0CoeQ",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "3d2f76a1-ce0b-4c34-a06a-7f40381fae68",
+      "name": "Respond JSON",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        260,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Admin Summary Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Summary Query": {
+      "main": [
+        [
+          {
+            "node": "Respond JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

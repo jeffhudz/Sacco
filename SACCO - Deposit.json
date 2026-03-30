@@ -1,0 +1,244 @@
+{
+  "name": "SACCO - Deposit",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "deposit",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b3f52790-0874-4eb7-b2b3-1d48ea4f75ae",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -752,
+        112
+      ],
+      "webhookId": "bbe05413-afe9-46dd-9e31-31109cd76fc1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, full_name FROM members WHERE member_number = $1;",
+        "options": {
+          "queryReplacement": "={{ $json.body.member_number }}"
+        }
+      },
+      "id": "bb6ef06c-9bd9-4cb6-8614-b5c85e9517d6",
+      "name": "Get Member",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        112
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "vMWjzfzcJMc0CoeQ",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.id}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "b6055f28-b263-4715-8e4a-e5a65dae6311",
+      "name": "Member Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO transactions (member_id, transaction_type, amount, reference) VALUES ($1,'deposit',$2,$3);",
+        "options": {
+          "queryReplacement": "=={{ $('Get Member').item.json.id }},{{ $('Webhook').item.json.body.amount }},{{ $('Webhook').item.json.body.reference }}"
+        }
+      },
+      "id": "bf92e1e2-c863-4d05-b2af-7008e1ceeb33",
+      "name": "Insert Transaction",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "vMWjzfzcJMc0CoeQ",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE accounts SET savings_balance = savings_balance + $1 WHERE member_id = $2;",
+        "options": {
+          "queryReplacement": "=={{ $('Webhook').item.json.body.amount }},{{ $('Get Member').item.json.id }}"
+        }
+      },
+      "id": "44f0a72f-f953-47aa-a3fd-a3e7024110e9",
+      "name": "Update Balance",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        256,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "vMWjzfzcJMc0CoeQ",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=Dear  {{ $('Member Exists?').item.json.full_name }},\nYou loan has been approved with amount {{ $('Webhook').item.json.body.amount }} ugs.\nThanks",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "9a8ccc09-a6bc-4bf1-871d-cfa6ef757d07",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        512,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "c1b40044-ae1b-4bc0-bad8-1690a990f1b6",
+      "name": "Respond Fail",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        208
+      ]
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "localhost:5678",
+            "user-agent": "curl/8.14.1",
+            "accept": "*/*",
+            "content-type": "application/json",
+            "content-length": "62"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "member_number": "3047",
+            "amount": 50000,
+            "reference": "MTN MOMO"
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/deposit",
+          "executionMode": "test"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Member",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Member": {
+      "main": [
+        [
+          {
+            "node": "Member Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Member Exists?": {
+      "main": [
+        [
+          {
+            "node": "Insert Transaction",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Transaction": {
+      "main": [
+        [
+          {
+            "node": "Update Balance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Balance": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "cea54212-501d-4566-b306-270053c6d064",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "21777cfa1f4c6deb442b6cd8c7db1a1e0e48bd1b16deb19dc93a08c48c960fa0"
+  },
+  "id": "EV3bYR3zotjrATnp",
+  "tags": []
+}

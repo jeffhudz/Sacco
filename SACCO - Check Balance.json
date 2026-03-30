@@ -1,0 +1,178 @@
+{
+  "name": "SACCO - Check Balance",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "check-balance",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f4aa3e74-14c8-41ec-97a3-7a61a2133914",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -864,
+        112
+      ],
+      "webhookId": "1ef6d434-8066-4cf2-a4fc-9773df9b2090"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT m.id, m.full_name, COALESCE(a.savings_balance, 0) AS savings_balance, COALESCE(a.loan_balance, 0) AS loan_balance FROM members m LEFT JOIN accounts a ON m.id = a.member_id WHERE m.member_number = $1;",
+        "options": {
+          "queryReplacement": "=={{ $json.body.member_number }}"
+        }
+      },
+      "id": "778c9983-f710-48e2-b9c8-98ea5200656f",
+      "name": "Get Balance",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        112
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "vMWjzfzcJMc0CoeQ",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.id}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "2971f300-5966-4f7b-acd8-f27705ee85e4",
+      "name": "Member Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -368,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { full_name: $json.full_name, savings_balance: $json.savings_balance, loan_balance: $json.loan_balance } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "675d311f-94f5-4235-9918-4bb52e79b4a2",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: 'Member not found' } }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "id": "3290e174-9ccb-4913-b4c6-a38da46547c5",
+      "name": "Respond Fail",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        208
+      ]
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "localhost:5678",
+            "user-agent": "curl/8.14.1",
+            "accept": "*/*",
+            "content-type": "application/json",
+            "content-length": "24"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "member_number": "3046"
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/check-balance",
+          "executionMode": "test"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Balance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Balance": {
+      "main": [
+        [
+          {
+            "node": "Member Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Member Exists?": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "7c873ae1-a5bc-43db-a839-45aed5c228cb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "21777cfa1f4c6deb442b6cd8c7db1a1e0e48bd1b16deb19dc93a08c48c960fa0"
+  },
+  "id": "XiuCHXMmCQhi1WEV",
+  "tags": []
+}

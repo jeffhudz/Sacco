@@ -1,0 +1,408 @@
+{
+  "name": "SACCO - Request Loan (Final)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "request-loan",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "7e35cef6-1437-41c4-9cce-c1758fa33122",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1072,
+        160
+      ],
+      "webhookId": "05c662b8-0035-47e9-b00c-84ccaa9a2d86"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT m.id, m.full_name, COALESCE(a.savings_balance,0) AS savings_balance FROM members m LEFT JOIN accounts a ON m.id = a.member_id WHERE m.member_number = $1;",
+        "options": {
+          "queryReplacement": "={{ $json.body.member_number }}"
+        }
+      },
+      "id": "5f992ddc-b7f4-494f-a5be-194a5102213f",
+      "name": "Get Member + Savings",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        -816,
+        160
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "vMWjzfzcJMc0CoeQ",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.id}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "fb0f958c-2a1d-4aef-b36b-5252c4b2e92f",
+      "name": "Member Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$node[\"Webhook\"].json.body.amount}}",
+              "operation": "smallerEqual",
+              "value2": "={{$json.savings_balance * 3}}"
+            }
+          ]
+        }
+      },
+      "id": "11748052-4964-4697-b087-d9b6a703cf41",
+      "name": "Eligible?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO transactions (member_id, transaction_type, amount, reference) VALUES ($1,'loan_disbursement',$2,'Loan issued');",
+        "options": {
+          "queryReplacement": "=={{ $('Member Exists?').item.json.id }},{{ $('Webhook').item.json.body.amount }}"
+        }
+      },
+      "id": "b6571dca-eb72-4762-a2f0-5b6982f1c7f0",
+      "name": "Insert Loan Transaction",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        -48
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "vMWjzfzcJMc0CoeQ",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE accounts SET loan_balance = loan_balance + $1 WHERE member_id = $2;",
+        "options": {
+          "queryReplacement": "={{ $('Webhook').item.json.body.amount }},{{ $('Member Exists?').item.json.id }}"
+        }
+      },
+      "id": "1c370793-0c98-47ef-af7f-0b4caef5dd73",
+      "name": "Update Loan Balance",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        192,
+        -48
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "vMWjzfzcJMc0CoeQ",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "0862c08b-11a3-4f29-aff1-90bc92c04f69",
+      "name": "Respond Reject",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "d25b66c3-8b5d-40e7-9d96-3ae43cc41f31",
+      "name": "Respond Member Not Found",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select * from members",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        544,
+        384
+      ],
+      "id": "d2928eaa-4fe2-4877-b435-edc8f2b31eeb",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "vMWjzfzcJMc0CoeQ",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.africastalking.com/version1/messaging",
+        "sendHeaders": true,
+        "specifyHeaders": "={\n  \"apiKey\": \"YOUR_API_KEY\",\n  \"Content-Type\": \"application/x-www-form-urlencoded\"\n}",
+        "headerParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=username=SACCO &\nto={{ $json.phone }}&\nmessage=Your loan of {{ $('Webhook').item.json.body.amount }} has been accepted.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        400,
+        -48
+      ],
+      "id": "8995ccb3-d615-4f7a-9480-80df5a1e28f2",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT phone FROM members\nWHERE member_number =$1;",
+        "options": {
+          "queryReplacement": "={{ $('Webhook').item.json.body.member_number }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -368,
+        144
+      ],
+      "id": "b2207a00-7fcb-4db4-9337-42ad4d3a0191",
+      "name": "Get Contacts",
+      "credentials": {
+        "postgres": {
+          "id": "vMWjzfzcJMc0CoeQ",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.africastalking.com/version1/messaging",
+        "sendHeaders": true,
+        "specifyHeaders": "={\n  \"apiKey\": \"atsk_b0bda8723ee27a066344abec45f965eebaa02fe996e048207f34aae1ae3a78f249ab4543\",\n  \"Content-Type\": \"application/x-www-form-urlencoded\"\n}",
+        "headerParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "username",
+              "value": "Sacco"
+            },
+            {
+              "name": "to",
+              "value": "={{ $json.phone }}"
+            },
+            {
+              "name": "message",
+              "value": "=Your loan request of {{ $('Webhook').item.json.body.amount }} ugs has been approved."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        192,
+        176
+      ],
+      "id": "297dcf0b-f61f-4eae-9332-3d17f74451a5",
+      "name": "HTTP Request1"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "localhost:5678",
+            "user-agent": "curl/8.14.1",
+            "accept": "*/*",
+            "content-type": "application/json",
+            "content-length": "40"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "member_number": "3047",
+            "amount": 100000
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/request-loan",
+          "executionMode": "test"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Member + Savings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Member + Savings": {
+      "main": [
+        [
+          {
+            "node": "Member Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Member Exists?": {
+      "main": [
+        [
+          {
+            "node": "Get Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Member Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Eligible?": {
+      "main": [
+        [
+          {
+            "node": "Insert Loan Transaction",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Reject",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Loan Transaction": {
+      "main": [
+        [
+          {
+            "node": "Update Loan Balance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Loan Balance": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Contacts": {
+      "main": [
+        [
+          {
+            "node": "Eligible?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond Reject": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d0c174ec-d704-459b-b55b-db3883e67c8c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "21777cfa1f4c6deb442b6cd8c7db1a1e0e48bd1b16deb19dc93a08c48c960fa0"
+  },
+  "id": "lfMZyoZe7cClPLMQ",
+  "tags": []
+}

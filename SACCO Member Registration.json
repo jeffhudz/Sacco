@@ -1,0 +1,128 @@
+{
+  "name": "SACCO Member Registration",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "add-member",
+        "options": {}
+      },
+      "id": "49404265-2ea7-4df8-b674-4b95a0eaa52d",
+      "name": "Add Member Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        16
+      ],
+      "webhookId": "d7e79a80-a15d-43fc-8e79-fea641b5c8aa"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO accounts (member_id, savings_balance, loan_balance) VALUES ($1,0,0);",
+        "additionalFields": {
+          "queryParams": "=={{$json[\"id\"]}}"
+        }
+      },
+      "id": "8fc791d6-d42b-4716-bb9e-78f563854ea8",
+      "name": "Create Account",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        480,
+        16
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "vMWjzfzcJMc0CoeQ",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "1f1b1ebb-51b1-44bc-afdf-b2a09d1a5c8c",
+      "name": "Return Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        720,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "\nINSERT INTO members (member_number, full_name, phone, password_hash)\nVALUES ($1,$2,$3,$4)\n\nON CONFLICT (member_number)\nDO UPDATE SET\n  full_name = EXCLUDED.full_name,\n  phone = EXCLUDED.phone\nRETURNING id",
+        "options": {
+          "queryReplacement": "=={{ $json.body.member_number }},{{ $json.body.name }},{{ $json.body.phone }},{{ $json.body.password }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        208,
+        16
+      ],
+      "id": "643dc3ea-3258-4650-a29e-d6e080463ded",
+      "name": "Insert Member",
+      "credentials": {
+        "postgres": {
+          "id": "vMWjzfzcJMc0CoeQ",
+          "name": "Postgres account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Add Member Webhook": {
+      "main": [
+        [
+          {
+            "node": "Insert Member",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Account": {
+      "main": [
+        [
+          {
+            "node": "Return Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Member": {
+      "main": [
+        [
+          {
+            "node": "Create Account",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "857f8137-027f-437b-bace-73c9bdf8e9f1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "21777cfa1f4c6deb442b6cd8c7db1a1e0e48bd1b16deb19dc93a08c48c960fa0"
+  },
+  "id": "wriHBIV0MiDSjqZx",
+  "tags": []
+}

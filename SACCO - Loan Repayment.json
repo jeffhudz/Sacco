@@ -1,0 +1,293 @@
+{
+  "name": "SACCO - Loan Repayment",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "repay-loan",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "078a35fd-5db3-4909-bbc0-05e332f67778",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1136,
+        208
+      ],
+      "webhookId": "62d5d8ff-8b29-4c0a-a99b-a78cf2ac467c"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT m.id, m.full_name, a.loan_balance FROM members m JOIN accounts a ON m.id = a.member_id WHERE m.member_number = $1;",
+        "options": {
+          "queryReplacement": "=={{ $json.body.member_number }}"
+        }
+      },
+      "id": "dc4a7c4d-688e-4118-acfa-164bf8414f93",
+      "name": "Get Member Loan",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        208
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "vMWjzfzcJMc0CoeQ",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.id}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "d7faf7f9-a17e-4e33-a60a-ea99a7bd9cf6",
+      "name": "Member Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -624,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$node[\"Webhook\"].json.body.amount}}",
+              "operation": "smallerEqual",
+              "value2": "={{$json.loan_balance}}"
+            }
+          ]
+        }
+      },
+      "id": "c526a3e6-5a5c-44aa-b659-f9e1b5a88cc0",
+      "name": "Valid Amount?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -384,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO transactions (member_id, transaction_type, amount, reference) VALUES ($1,'loan_repayment',$2,$3);",
+        "options": {
+          "queryReplacement": "={{ $('Member Exists?').item.json.id }},{{ $('Webhook').item.json.body.amount }},{{ $('Webhook').item.json.body.reference }}"
+        }
+      },
+      "id": "b563bd7a-57e2-496d-9b66-f05f07abd5f2",
+      "name": "Insert Repayment",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "vMWjzfzcJMc0CoeQ",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE accounts SET loan_balance = loan_balance - $1 WHERE member_id = $2;",
+        "options": {
+          "queryReplacement": "={{ $('Webhook').item.json.body.amount }},{{ $('Valid Amount?').item.json.id }}"
+        }
+      },
+      "id": "8270a522-3605-4fad-9035-f17ff8427b8a",
+      "name": "Update Loan Balance",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        128,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "vMWjzfzcJMc0CoeQ",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "1cde4ea8-b8cb-4594-a0ae-cb5f79bc00ec",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        384,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "ece0ac09-de49-404d-80f9-959da62282b0",
+      "name": "Respond Invalid Amount",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a1c845ed-a09d-49df-91a4-1acfbfc968a5",
+      "name": "Respond Member Not Found",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -384,
+        352
+      ]
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "localhost:5678",
+            "user-agent": "curl/8.14.1",
+            "accept": "*/*",
+            "content-type": "application/json",
+            "content-length": "62"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "member_number": "3047",
+            "amount": 20000,
+            "reference": "MTN MOMO"
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/repay-loan",
+          "executionMode": "test"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Member Loan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Member Loan": {
+      "main": [
+        [
+          {
+            "node": "Member Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Member Exists?": {
+      "main": [
+        [
+          {
+            "node": "Valid Amount?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Member Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Amount?": {
+      "main": [
+        [
+          {
+            "node": "Insert Repayment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Invalid Amount",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Repayment": {
+      "main": [
+        [
+          {
+            "node": "Update Loan Balance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Loan Balance": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "90cf42d9-ee9b-4b06-8a31-8622b9fdae49",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "21777cfa1f4c6deb442b6cd8c7db1a1e0e48bd1b16deb19dc93a08c48c960fa0"
+  },
+  "id": "0iarbPRyWZoS6jCx",
+  "tags": []
+}
