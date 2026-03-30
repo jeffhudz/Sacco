@@ -227,7 +227,7 @@
         "method": "POST",
         "url": "https://api.africastalking.com/version1/messaging",
         "sendHeaders": true,
-        "specifyHeaders": "={\n  \"apiKey\": \"atsk_b0bda8723ee27a066344abec45f965eebaa02fe996e048207f34aae1ae3a78f249ab4543\",\n  \"Content-Type\": \"application/x-www-form-urlencoded\"\n}",
+        "specifyHeaders": "={\n  \"apiKey\": \api_key,\n  \"Content-Type\": \"application/x-www-form-urlencoded\"\n}",
         "headerParameters": {
           "parameters": [
             {}
